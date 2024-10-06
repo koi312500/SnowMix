@@ -1,27 +1,27 @@
 {
   "manifest_version": 3,
   "name": "Snowmix",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "For everyone who walks towards the stars",
-  "icons": {
-    "16": "images/icon-16.png",
-    "32": "images/icon-32.png",
-    "48": "images/icon-48.png",
-    "128": "images/icon-128.png"
-  },
-  "host_permissions": [
-    "<all_urls>"
+  "permissions": [
+    "activeTab", "scripting", "tabs"
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "48": "images/icon-48.png",
+      "128": "images/icon-128.png"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },
-  "action": {
-    "default_title": "Snowmix",
-    "default_popup": "popup.html"
-  },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
   ]
 }

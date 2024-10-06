@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "@techstark/opencv-js": "^4.10.0-release.1",
     "@types/chrome": "^0.0.270",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "mathjs": "^13.1.1"
   }
 }

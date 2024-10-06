@@ -1,31 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filter Adjuster</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Colorblindness Correction</title>
 </head>
 <body>
-<div class="filter-container">
-    <label>Brightness: <input type="number" id="brightness" value="100">% </label>
-    <label>Contrast: <input type="number" id="contrast" value="100">% </label>
-    <label>Saturate: <input type="number" id="saturate" value="100">% </label>
-    <label>Invert: <input type="number" id="invert" value="0">% </label>
-    <label>Hue-Rotate: <input type="number" id="hueRotate" value="0">deg </label>
-    <label>Gray Scale: <input type="number" id="grayScale" value="0">% </label>
-    <label>Blur: <input type="number" id="blur" value="0">px </label>
+<h1>Correct Colors for Colorblindness</h1>
+<select id="colorblind-type">
+    <option value="protanopia">Protanopia</option>
+    <option value="deuteranopia">Deuteranopia</option>
+    <option value="tritanopia">Tritanopia</option>
+</select>
+<button id="correct-btn">Correct Image</button>
 
-    <button id="apply">Apply</button>
-    <button id="reset">Reset</button>
-
-    <div>
-        <button id="savePreset">Save Preset</button>
-        <select id="presetSelect">
-            <option value="">Load Preset</option>
-        </select>
-    </div>
-</div>
 <script src="popup.js"></script>
 </body>
 </html>
