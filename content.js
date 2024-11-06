@@ -105,46 +105,87 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+// Base64 문자열을 Blob으로 변환하는 함수
+function base64ToBlob(base64) {
+    const binary = atob(base64.split(',')[1]);
+    const array = [];
+    for (let i = 0; i < binary.length; i++) {
+        array.push(binary.charCodeAt(i));
+    }
+    return new Blob([new Uint8Array(array)], { type: 'image/png' });
+}
+
+
 // Function to apply color correction
+// CORS 프록시 서버 URL 설정
+
 async function applyColorCorrection(colorblindType) {
     const images = document.querySelectorAll('img');
 
-    // Iterate over each image on the page
     for (const img of images) {
-        // Set crossOrigin attribute to allow image manipulation
-        img.crossOrigin = "Anonymous";
+        let tempImg = new Image();
 
-        // Wait for the image to load before processing
+        // Base64 이미지 처리
+        if (img.src.startsWith('data:image')) {
+            // Base64 이미지를 Blob으로 변환
+            const blob = base64ToBlob(img.src);
+            const objectURL = URL.createObjectURL(blob);
+            tempImg.src = objectURL;
+        } else {
+            // 외부 URL인 경우 프록시 서버를 통해 요청
+            const targetUrl = img.src;
+            const proxiedUrl = "http://localhost:3000/proxy?url=" + encodeURIComponent(targetUrl);
+
+            try {
+                const response = await fetch(proxiedUrl);
+                const imageBlob = await response.blob();
+                const objectURL = URL.createObjectURL(imageBlob);
+                tempImg.src = objectURL;
+            } catch (error) {
+                console.warn(`프록시 서버 오류로 이미지 처리 불가: ${img.src}`);
+                continue;
+            }
+        }
+
         await new Promise((resolve) => {
-            img.onload = () => resolve();
-            img.onerror = () => {
-                console.error('Error loading image:', img.src);
-                resolve(); // Continue even if there is an error
+            tempImg.onload = () => resolve();
+            tempImg.onerror = () => {
+                console.error('Error loading image:', tempImg.src);
+                resolve();
             };
         });
 
-        // Create a canvas to manipulate the image
+        if (tempImg.width === 0 || tempImg.height === 0) {
+            console.error('Image width or height is zero, skipping:', tempImg.src);
+            continue;
+        }
+
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = tempImg.width;
+        canvas.height = tempImg.height;
 
         try {
-            context.drawImage(img, 0, 0, img.width, img.height);
-            const imageData = context.getImageData(0, 0, img.width, img.height);
+            context.drawImage(tempImg, 0, 0, tempImg.width, tempImg.height);
+            const imageData = context.getImageData(0, 0, tempImg.width, tempImg.height);
 
-            // Apply the Daltonization correction
             const correctedData = daltonizeImage(imageData, colorblindType);
             context.putImageData(correctedData, 0, 0);
 
-            // Update the image source with the corrected version
-            img.src = canvas.toDataURL();
+            img.src = canvas.toDataURL(); // 처리된 이미지를 Base64로 다시 설정
+            URL.revokeObjectURL(tempImg.src);
         } catch (error) {
             console.error('Error processing image:', error);
-            // Optionally, you can set the img.src back to the original source
-            // img.src = img.dataset.originalSrc; // if you store original src in dataset
+            URL.revokeObjectURL(tempImg.src);
         }
     }
+
+    console.log(`모든 이미지 변환 완료: 이미지가 변환되었습니다.`);
 }
+
+
+
+
+
 
 
