@@ -1,91 +1,112 @@
-// HTML 및 이미지 데이터를 서버로 전송
+// background.js
+
+// HTML 및 이미지 데이터를 서버로 전송하는 함수
 async function fetchPageData(tabId) {
+  console.log("Fetching data from tab ID:", tabId);
   const [pageData] = await chrome.scripting.executeScript({
     target: { tabId: tabId },
-    func: () => {
+    func: async () => {
       const pageHtml = document.documentElement.outerHTML;
 
-      const images = Array.from(document.images).map((img) => {
-        const imageUrl = img.src;
-        return fetch(imageUrl)
-          .then((response) => response.blob())
-          .then((blob) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          }))
-          .then((base64Data) => ({ src: imageUrl, base64: base64Data }))
-          .catch((error) => {
+      // 이미지 데이터 가져오기
+      const images = await Promise.all(
+        Array.from(document.images).map(async (img) => {
+          try {
+            const response = await fetch(img.src);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch image: ${response.statusText}`);
+            }
+            const blob = await response.blob();
+            const base64Data = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            return { src: img.src, base64: base64Data };
+          } catch (error) {
             console.error('Error converting image:', error);
             return null;
-          });
-      });
+          }
+        })
+      );
 
-      return Promise.all(images).then((imageData) => ({
+      return {
         html: pageHtml,
-        images: imageData.filter(Boolean)
-      }));
-    }
+        images: images.filter(Boolean),
+      };
+    },
   });
 
-  return pageData.result;
-}
-
-// 화면 캡처 기능 추가
-async function captureAndSendScreenshot() {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.captureVisibleTab(null, { format: "png" }, (imageDataUrl) => {
-      if (chrome.runtime.lastError) {
-        console.error("Capture error:", chrome.runtime.lastError);
-        reject("Failed to capture screenshot");
-      } else {
-        console.log("Captured screen image");
-        resolve(imageDataUrl);
-      }
+  // 스크린샷 가져오기
+  let screenshot = null;
+  try {
+    screenshot = await new Promise((resolve, reject) => {
+      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error('Screenshot capture error: ' + chrome.runtime.lastError.message));
+        } else {
+          resolve(dataUrl);
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error capturing screenshot:', error);
+  }
+
+  return {
+    html: pageData.result.html,
+    images: pageData.result.images,
+    screenshot: screenshot || null,
+  };
 }
 
-// 서버로 HTML, 이미지, 캡처 데이터를 전송하는 함수
+// 서버로 데이터를 전송하는 함수
 function sendToServer(data) {
-  return fetch("http://localhost:3000/receive_html", {
+  console.log("Sending data to server:", JSON.stringify(data));
+  return fetch("http://localhost:4000/receive_html", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Server response:', data);
-    return { success: true };
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    return { success: false };
-  });
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Server response:', data);
+      return { success: true };
+    })
+    .catch(error => {
+      console.error('Error sending data to server:', error);
+      return { success: false, error: error.message };
+    });
 }
 
-// popup.js에서 메시지를 받으면 페이지 데이터와 화면 캡처를 수집해 서버로 전송
+// 메시지 리스너 설정
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "sendData" && message.tabId) {
-    Promise.all([fetchPageData(message.tabId), captureAndSendScreenshot()])
-      .then(([pageData, screenshot]) => {
-        // pageData와 screenshot 이미지를 합쳐서 서버로 전송
-        const dataToSend = {
-          html: pageData.html,
-          images: pageData.images,
-          screenshot: screenshot  // base64 인코딩된 스크린샷 이미지
-        };
-        console.log("Sending HTML, image, and screenshot data:", JSON.stringify(dataToSend));
-        return sendToServer(dataToSend);
+    console.log("Received message:", message);
+    fetchPageData(message.tabId)
+      .then(data => {
+        console.log("Fetched data:", data);
+        return sendToServer(data);
       })
-      .then((result) => sendResponse(result))
-      .catch((error) => {
-        console.error('Error sending data:', error);
-        sendResponse({ success: false });
+      .then(result => {
+        sendResponse(result);
+      })
+      .catch(error => {
+        console.error('Error fetching page data or sending to server:', error);
+        sendResponse({ success: false, error: error.message });
       });
-    return true;
+
+    return true; // 비동기 응답을 위해 true 반환
+  } else {
+    console.warn("Received message without action or tabId. Message:", message);
+    sendResponse({ success: false });
   }
 });
