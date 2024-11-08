@@ -19,6 +19,9 @@
     "default_title": "Snowmix",
     "default_popup": "popup.html"
   },
+  "externally_connectable": {
+    "matches": ["*://*.google.com/*"]
+  },
   "permissions": [
     "activeTab",
     "scripting",
