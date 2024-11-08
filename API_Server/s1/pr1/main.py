@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
-import requests
 import base64
 import re
-from datetime import datetime
+import anthropic
 import pyttsx3  # TTS (텍스트-음성 변환) 라이브러리
 
 app = FastAPI()
@@ -29,29 +28,27 @@ def save_file(filename: str, data: str):
         print(f"Error saving file {filename}: {e}")
         raise HTTPException(status_code=500, detail="Error saving file")
 
-# AI 서버에 요청하여 요약받기
-def get_summary_from_ai(html_content: str):
-    AI_API_URL = "https://api.claude.ai/summeraize"  # AI 서버 API URL 
-    API_KEY = "채워주세요"  # AI 서버 API 키
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "text": html_content
-    }
-
+# Anthropic API를 사용하여 HTML 요약 받기
+def get_summary_from_anthropic(html_content: str):
+    # Anthropic API 설정
+    client = anthropic.Client("your_anthropic_api_key")  # Anthropic API 키
+    
+    prompt = f"Summarize the following HTML content:\n{html_content}\nSummary:"
+    
     try:
-        response = requests.post(AI_API_URL, json=payload, headers=headers)
-        response.raise_for_status()
-        summary = response.json().get("summary")
+        # Claude 모델에 요청을 보내서 요약을 받음
+        response = client.completions.create(
+            model="claude-1",  # 사용할 모델 (Claude-1, Claude-2 등)
+            prompt=prompt,
+            max_tokens=500,  # 최대 토큰 수
+        )
+        summary = response["completion"]
         if not summary:
-            raise HTTPException(status_code=500, detail="AI 서버로부터 요약을 받지 못했습니다.")
+            raise HTTPException(status_code=500, detail="Anthropic 서버로부터 요약을 받지 못했습니다.")
         return summary
-    except requests.exceptions.RequestException as e:
-        print(f"Error connecting to AI server: {e}")
-        raise HTTPException(status_code=500, detail="AI 서버와의 연결 실패")
+    except Exception as e:
+        print(f"Error connecting to Anthropic API: {e}")
+        raise HTTPException(status_code=500, detail="Anthropic 서버와의 연결 실패")
 
 # 텍스트를 음성으로 변환하고 저장
 def text_to_speech(text: str, filename="summary_audio.mp3"):
@@ -87,8 +84,8 @@ async def receive_html(data: ReceiveData):
             base64_data = match[2]
             save_file(f"screenshot.{extension}", base64_data)
 
-    # AI 서버에 HTML 데이터 요약 요청
-    summary = get_summary_from_ai(data.html)
+    # Anthropic API에 HTML 데이터 요약 요청
+    summary = get_summary_from_anthropic(data.html)
     print(f"Received summary: {summary}")
 
     # 요약된 텍스트를 음성으로 변환하여 저장
