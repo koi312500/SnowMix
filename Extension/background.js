@@ -1,14 +1,119 @@
 // background.js
 
-// HTML 및 이미지 데이터를 서버로 전송하는 함수
+let screenshotInterval;
+let capturing = true;
+
+// Function to send HTML and image data to `/receive_html` endpoint
+function sendHtmlAndImages(data) {
+  return fetch("http://192.168.1.15:8000/receive_html", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+    .then(response => {
+      if (!response.ok) {
+        return Promise.reject(new Error(`Network response was not ok: ${response.status} ${response.statusText}`));
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log("HTML and images sent successfully:", data);
+      return { success: true };
+    })
+    .catch(error => {
+      console.error("Error sending HTML and images:", error);
+      return { success: false, error: error.message };
+    });
+}
+
+// Function to send screenshot data to `/receive_screenshot` endpoint
+function sendScreenshot(data) {
+  return fetch("http://192.168.1.15:8000/receive_screenshot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+    .then(response => {
+      if (!response.ok) {
+        return Promise.reject(new Error(`Network response was not ok: ${response.status} ${response.statusText}`));
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log("Screenshot sent successfully:", data);
+      return { success: true };
+    })
+    .catch(error => {
+      console.error("Error sending screenshot:", error);
+      return { success: false, error: error.message };
+    });
+}
+
+// Start capturing screenshots every 20 seconds if capturing is true
+function startScreenshotInterval() {
+  if (screenshotInterval) return;
+
+  screenshotInterval = setInterval(() => {
+    if (capturing) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          captureScreenshot()
+            .then(screenshot => sendScreenshot({ screenshot }))
+            .then(() => console.log("Screenshot captured and sent successfully"))
+            .catch(error => console.error("Error capturing or sending screenshot:", error));
+        }
+      });
+    }
+  }, 20000);
+}
+
+// Function to capture a screenshot, returning a Promise
+function captureScreenshot() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+      if (dataUrl) {
+        resolve(dataUrl);
+      } else {
+        reject(new Error("Failed to capture screenshot"));
+      }
+    });
+  });
+}
+
+// Message listener for HTML/image and screenshot actions
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "sendData" && message.tabId) {
+    fetchPageData(message.tabId)
+      .then(data => sendHtmlAndImages(data))
+      .then(result => sendResponse(result))
+      .catch(error => {
+        console.error("Error fetching page data or sending to server:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+
+    return true; // Keep the message channel open for async response
+  } else if (message.action === "toggleCapture") {
+    capturing = !capturing;
+
+    if (capturing) {
+      startScreenshotInterval();
+    } else {
+      clearInterval(screenshotInterval);
+      screenshotInterval = null;
+    }
+
+    sendResponse({ capturing });
+    return true;
+  }
+});
+
+// Fetch HTML and images from a tab
 async function fetchPageData(tabId) {
-  console.log("Fetching data from tab ID:", tabId);
   const [pageData] = await chrome.scripting.executeScript({
-    target: { tabId: tabId },
+    target: { tabId },
     func: async () => {
       const pageHtml = document.documentElement.outerHTML;
 
-      // 이미지 데이터 가져오기
       const images = await Promise.all(
         Array.from(document.images).map(async (img) => {
           try {
@@ -25,7 +130,7 @@ async function fetchPageData(tabId) {
             });
             return { src: img.src, base64: base64Data };
           } catch (error) {
-            console.error('Error converting image:', error);
+            console.error("Error converting image:", error);
             return null;
           }
         })
@@ -38,75 +143,17 @@ async function fetchPageData(tabId) {
     },
   });
 
-  // 스크린샷 가져오기
-  let screenshot = null;
-  try {
-    screenshot = await new Promise((resolve, reject) => {
-      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error('Screenshot capture error: ' + chrome.runtime.lastError.message));
-        } else {
-          resolve(dataUrl);
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Error capturing screenshot:', error);
-  }
+  const screenshot = await captureScreenshot().catch(error => {
+    console.error("Error capturing screenshot:", error);
+    return null;
+  });
 
   return {
     html: pageData.result.html,
     images: pageData.result.images,
-    screenshot: screenshot || null,
+    screenshot,
   };
 }
 
-// 서버로 데이터를 전송하는 함수
-function sendToServer(data) {
-  console.log("Sending data to server:", JSON.stringify(data));
-  return fetch("http://localhost:4000/receive_html", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log('Server response:', data);
-      return { success: true };
-    })
-    .catch(error => {
-      console.error('Error sending data to server:', error);
-      return { success: false, error: error.message };
-    });
-}
-
-// 메시지 리스너 설정
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "sendData" && message.tabId) {
-    console.log("Received message:", message);
-    fetchPageData(message.tabId)
-      .then(data => {
-        console.log("Fetched data:", data);
-        return sendToServer(data);
-      })
-      .then(result => {
-        sendResponse(result);
-      })
-      .catch(error => {
-        console.error('Error fetching page data or sending to server:', error);
-        sendResponse({ success: false, error: error.message });
-      });
-
-    return true; // 비동기 응답을 위해 true 반환
-  } else {
-    console.warn("Received message without action or tabId. Message:", message);
-    sendResponse({ success: false });
-  }
-});
+// Start screenshot interval when the extension loads
+startScreenshotInterval();

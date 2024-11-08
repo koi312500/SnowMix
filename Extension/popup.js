@@ -1,27 +1,56 @@
+document.getElementById('correct-btn').addEventListener('click', function () {
+    const colorblindType = document.getElementById('colorblind-type').value;
+
+    // Query for the active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        const activeTab = tabs[0];
+
+        // Inject content.js dynamically into the active tab
+        chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['content.js']
+        }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error injecting script: ', chrome.runtime.lastError.message);
+                return;
+            }
+
+            // Send message to the content script to apply color correction
+            chrome.tabs.sendMessage(activeTab.id, { type: "applyColorCorrection", colorblindType: colorblindType }, function (response) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error sending message: ', chrome.runtime.lastError.message);
+                } else if (response && response.success) {
+                    console.log('Color correction applied:', response.message);
+                } else {
+                    console.error('No response from content script.');
+                }
+            });
+        });
+    });
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   const sendDataButton = document.getElementById("sendDataButton");
+  const toggleCaptureButton = document.getElementById("toggleCaptureButton");
   const statusMessage = document.getElementById("statusMessage");
 
-  // 버튼 클릭 시 현재 탭의 ID를 가져와 background.js로 메시지 전송
   sendDataButton.addEventListener("click", () => {
     statusMessage.textContent = "Sending data...";
 
-    // 현재 활성 탭 ID 가져오기
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const activeTab = tabs[0];
       
       if (activeTab && activeTab.id !== undefined) {
-        // background.js에 메시지 보내기
-        const message = { action: "sendData", tabId: activeTab.id }; // Ensure action name matches
-
-        console.log("Sending message to background:", message); // Log message being sent
+        const message = { action: "sendData", tabId: activeTab.id };
 
         chrome.runtime.sendMessage(message, (response) => {
-          // 응답 상태에 따라 메시지 업데이트
           if (chrome.runtime.lastError) {
-            console.error("Error sending message:", chrome.runtime.lastError);
+            console.error("Error sending message:", chrome.runtime.lastError.message);
             statusMessage.textContent = "Error sending data.";
-          } else if (response && response.success) {
+            return;
+          }
+          
+          if (response && response.success) {
             statusMessage.textContent = "Data sent successfully!";
           } else {
             statusMessage.textContent = "Failed to send data.";
@@ -29,6 +58,18 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       } else {
         statusMessage.textContent = "Failed to get active tab.";
+      }
+    });
+  });
+
+  toggleCaptureButton.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "toggleCapture" }, (response) => {
+      if (response && response.capturing) {
+        toggleCaptureButton.textContent = "Stop Capturing Screenshots";
+        statusMessage.textContent = "Capturing screenshots every 20 seconds.";
+      } else {
+        toggleCaptureButton.textContent = "Start Capturing Screenshots";
+        statusMessage.textContent = "Screenshot capturing stopped.";
       }
     });
   });
