@@ -1,17 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Colorblindness Correction</title>
+    <title>Colorblindness Correction and Data Sender</title>
+    <style>
+        body {
+            width: 200px;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+        button, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-<h1>Correct Colors for Colorblindness</h1>
-<select id="colorblind-type">
-    <option value="protanopia">Protanopia</option>
-    <option value="deuteranopia">Deuteranopia</option>
-    <option value="tritanopia">Tritanopia</option>
-</select>
-<button id="correct-btn">Correct Image</button>
+    <h1>Colorblindness Correction and Data Sender</h1>
+    
+    <!-- Colorblindness Correction Section -->
+    <h2>Correct Colors for Colorblindness</h2>
+    <select id="colorblind-type">
+        <option value="protanopia">Protanopia</option>
+        <option value="deuteranopia">Deuteranopia</option>
+        <option value="tritanopia">Tritanopia</option>
+    </select>
+    <button id="correct-btn">Correct Image</button>
+    
+    <!-- Data Sending Section -->
+    <h2>Data Sender</h2>
+    <button id="sendDataButton">Send HTML and Images</button>
+    <button id="toggleCaptureButton">Stop Capturing Screenshots</button>
+    <p id="statusMessage"></p>
 
-<script src="popup.js"></script>
+    <!-- JavaScript Files -->
+    <script src="popup.js"></script>
 </body>
 </html>
