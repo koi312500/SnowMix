@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Snowmix",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "For everyone who walks towards the stars",
   "icons": {
     "16": "images/icon-16.png",
@@ -29,6 +29,7 @@
   },
   "content_scripts": [
     {
+      "all_frames": true,
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_idle"
