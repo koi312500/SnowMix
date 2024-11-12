@@ -112,6 +112,54 @@ function captureScreenshot() {
     });
   });
 }
+// Function to fetch HTML and images from a tab
+async function fetchPageData(tabId) {
+  const [pageData] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async () => {
+      const pageHtml = document.documentElement.outerHTML;
+
+      // Fetch all images and convert them to base64
+      const images = await Promise.all(
+        Array.from(document.images).map(async (img) => {
+          try {
+            const response = await fetch(img.src);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch image: ${response.statusText}`);
+            }
+            const blob = await response.blob();
+            const base64Data = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            return { src: img.src, base64: base64Data };
+          } catch (error) {
+            console.error("Error converting image:", error);
+            return null;
+          }
+        })
+      );
+
+      return {
+        html: pageHtml,
+        images: images.filter(Boolean),
+      };
+    },
+  });
+
+  const screenshot = await captureScreenshot().catch(error => {
+    console.error("Error capturing screenshot:", error);
+    return null;
+  });
+
+  return {
+    html: pageData.result.html,
+    images: pageData.result.images,
+    screenshot,
+  };
+}
 
 // Message listener for HTML/image and screenshot actions
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
