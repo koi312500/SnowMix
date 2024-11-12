@@ -1,21 +1,16 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 import base64
 import re
 import anthropic
-import pyttsx3  # TTS (텍스트-음성 변환) 라이브러리
+import time
 
 app = FastAPI()
 
 # 모델 정의
-class ImageData(BaseModel):
-    base64: str
-    src: str
-
 class ReceiveData(BaseModel):
     html: str
-    images: list[ImageData]
     screenshot: str | None = None
 
 # 파일 저장 함수
@@ -28,77 +23,83 @@ def save_file(filename: str, data: str):
         print(f"Error saving file {filename}: {e}")
         raise HTTPException(status_code=500, detail="Error saving file")
 
-<<<<<<< HEAD
 # Anthropic API를 사용하여 HTML, 스크린샷 요약 받기
 def get_summary_from_anthropic(html_content: str, screenshot: str | None = None):
     client = anthropic.Anthropic(api_key="")
-=======
-# Anthropic API를 사용하여 HTML 요약 받기
-def get_summary_from_anthropic(html_content: str):
-    # Anthropic API 설정
-    client = anthropic.Client("your_anthropic_api_key")  # Anthropic API 키
     
-    prompt = f"Summarize the following HTML content:\n{html_content}\nSummary:"
->>>>>>> parent of 4815181 (text 요약 만)
-    
+    prompt = f"\n\nHuman:Summarize the following HTML data:\n{html_content}\nAssistant"
+
     try:
-        # Claude 모델에 요청을 보내서 요약을 받음
-        response = client.completions.create(
-            model="claude-1",  # 사용할 모델 (Claude-1, Claude-2 등)
-            prompt=prompt,
-            max_tokens=500,  # 최대 토큰 수
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=8000,
+            temperature=0,
+            system="You are a world-class summarizer. Respond only with concise summaries. Please write as the as one continuous sentence. 그리고 한국어를 써서 답을 해줘. 너는 한국인을 위한 요약기야. ",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
         )
-        summary = response["completion"]
+        
+        # 응답 내용에서 요약 추출
+        summary = response.content[0].text
+        print(summary)
         if not summary:
-            raise HTTPException(status_code=500, detail="Anthropic 서버로부터 요약을 받지 못했습니다.")
+            raise HTTPException(status_code=500, detail="Failed to receive summary from Anthropic server.")
         return summary
     except Exception as e:
         print(f"Error connecting to Anthropic API: {e}")
-        raise HTTPException(status_code=500, detail="Anthropic 서버와의 연결 실패")
+        raise HTTPException(status_code=500, detail="Failed to connect to Anthropic server")
 
-# 텍스트를 음성으로 변환하고 저장
-def text_to_speech(text: str, filename="summary_audio.mp3"):
-    engine = pyttsx3.init()
-    engine.save_to_file(text, filename)
-    engine.runAndWait()
-    print(f"Saved TTS audio as {filename}")
+# 스크린샷 처리 함수
+def save_screenshot(screenshot_data: str):
+    match = re.match(r"^data:image/(\w+);base64,(.+)", screenshot_data)
+    if match:
+        extension = match[1] if match[1] else "png"
+        base64_data = match[2]
+        save_file(f"screenshot_{int(time.time())}.{extension}", base64_data)
 
+# HTML 데이터 처리 API
 @app.post("/receive_html")
-async def receive_html(data: ReceiveData):
-    if not data.html or not data.images:
+async def receive_html(data: ReceiveData, background_tasks: BackgroundTasks):
+    print("/receive_html requested!")
+    if not data.html:
         raise HTTPException(status_code=400, detail="Missing required fields")
 
     # HTML 저장
-    with open("page.html", "w") as f:
+    with open("page.html", "w", encoding="utf-8") as f:
         f.write(data.html)
     print("HTML saved as page.html")
 
-    # 이미지 저장
-    for index, img in enumerate(data.images):
-        match = re.match(r"^data:image/(\w+);base64,(.+)", img.base64)
-        if match:
-            extension = match[1] if match[1] else "png"
-            base64_data = match[2]
-            filename = f"image_{index}.{extension}"
-            save_file(filename, base64_data)
-
-    # 스크린샷 저장
-    if data.screenshot:
-        match = re.match(r"^data:image/(\w+);base64,(.+)", data.screenshot)
-        if match:
-            extension = match[1] if match[1] else "png"
-            base64_data = match[2]
-            save_file(f"screenshot.{extension}", base64_data)
-
-    # Anthropic API에 HTML 데이터 요약 요청
-    summary = get_summary_from_anthropic(data.html)
+    # Anthropic API에 HTML, 스크린샷 요약 요청
+    html_code = data.html
+    if len(html_code) > 200000:
+        html_code = html_code[:200000]
+    summary = get_summary_from_anthropic(html_code, data.screenshot)
     print(f"Received summary: {summary}")
 
-    # 요약된 텍스트를 음성으로 변환하여 저장
-    text_to_speech(summary)
+    return JSONResponse(content={"success": True, "message": "Data processed and summary received"})
 
-    return JSONResponse(content={"success": True, "message": "Data processed and summary audio saved"})
-    
+# 스크린샷 주기적 처리
+@app.post("/receive_screenshot")
+async def receive_screenshot(data: ReceiveData, background_tasks: BackgroundTasks):
+    print("/receive_screenshot requested!")
+    if not data.screenshot:
+        raise HTTPException(status_code=400, detail="Missing screenshot data")
+
+    # 스크린샷 저장 및 20초마다 처리
+    background_tasks.add_task(save_screenshot, data.screenshot)
+
+    return JSONResponse(content={"success": True, "message": "Screenshot processing scheduled every 20 seconds"})
+
+# FastAPI 앱 실행
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4000)
