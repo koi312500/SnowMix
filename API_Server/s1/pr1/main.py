@@ -28,12 +28,18 @@ def save_file(filename: str, data: str):
         print(f"Error saving file {filename}: {e}")
         raise HTTPException(status_code=500, detail="Error saving file")
 
+<<<<<<< HEAD
+# Anthropic API를 사용하여 HTML, 스크린샷 요약 받기
+def get_summary_from_anthropic(html_content: str, screenshot: str | None = None):
+    client = anthropic.Anthropic(api_key="")
+=======
 # Anthropic API를 사용하여 HTML 요약 받기
 def get_summary_from_anthropic(html_content: str):
     # Anthropic API 설정
     client = anthropic.Client("your_anthropic_api_key")  # Anthropic API 키
     
     prompt = f"Summarize the following HTML content:\n{html_content}\nSummary:"
+>>>>>>> parent of 4815181 (text 요약 만)
     
     try:
         # Claude 모델에 요청을 보내서 요약을 받음
