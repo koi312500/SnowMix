@@ -1,11 +1,9 @@
-// background.js
-
 let screenshotInterval;
 let capturing = true;
 
 // Function to send HTML and image data to `/receive_html` endpoint
 function sendHtmlAndImages(data) {
-  return fetch("http://192.168.1.15:8000/receive_html", {
+  return fetch("http://192.168.65.120:8000/receive_html", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -18,6 +16,11 @@ function sendHtmlAndImages(data) {
     })
     .then(data => {
       console.log("HTML and images sent successfully:", data);
+
+      // If the server response contains text, use Kakao TTS
+      if (data.text) {
+        return fetchTTS(data.text); // Fetch TTS audio for the text
+      }
       return { success: true };
     })
     .catch(error => {
@@ -28,7 +31,7 @@ function sendHtmlAndImages(data) {
 
 // Function to send screenshot data to `/receive_screenshot` endpoint
 function sendScreenshot(data) {
-  return fetch("http://192.168.1.15:8000/receive_screenshot", {
+  return fetch("http://192.168.65.120:8000/receive_screenshot", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -41,10 +44,40 @@ function sendScreenshot(data) {
     })
     .then(data => {
       console.log("Screenshot sent successfully:", data);
+
+      // If server response contains text, fetch TTS audio
+      if (data.text) {
+        return fetchTTS(data.text); // Fetch TTS audio for the text
+      }
       return { success: true };
     })
     .catch(error => {
       console.error("Error sending screenshot:", error);
+      return { success: false, error: error.message };
+    });
+}
+
+// Function to fetch TTS audio from Kakao TTS API
+function fetchTTS(text) {
+  const encodedText = encodeURIComponent(text);
+  const ttsUrl = `https://tts-translate.kakao.com/newtone?message=${encodedText}&format=wav-16k`;
+
+  return fetch(ttsUrl)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`TTS request failed: ${response.status} ${response.statusText}`);
+      }
+      return response.blob();
+    })
+    .then(blob => {
+      console.log("TTS audio retrieved successfully.");
+      const audioUrl = URL.createObjectURL(blob);
+      // Send the audio URL to popup.js for playback
+      chrome.runtime.sendMessage({ action: "playAudio", audioUrl });
+      return { success: true };
+    })
+    .catch(error => {
+      console.error("Error retrieving TTS audio:", error);
       return { success: false, error: error.message };
     });
 }
@@ -106,54 +139,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
-
-// Fetch HTML and images from a tab
-async function fetchPageData(tabId) {
-  const [pageData] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: async () => {
-      const pageHtml = document.documentElement.outerHTML;
-
-      const images = await Promise.all(
-        Array.from(document.images).map(async (img) => {
-          try {
-            const response = await fetch(img.src);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch image: ${response.statusText}`);
-            }
-            const blob = await response.blob();
-            const base64Data = await new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            return { src: img.src, base64: base64Data };
-          } catch (error) {
-            console.error("Error converting image:", error);
-            return null;
-          }
-        })
-      );
-
-      return {
-        html: pageHtml,
-        images: images.filter(Boolean),
-      };
-    },
-  });
-
-  const screenshot = await captureScreenshot().catch(error => {
-    console.error("Error capturing screenshot:", error);
-    return null;
-  });
-
-  return {
-    html: pageData.result.html,
-    images: pageData.result.images,
-    screenshot,
-  };
-}
-
-// Start screenshot interval when the extension loads
-startScreenshotInterval();
