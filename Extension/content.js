@@ -134,7 +134,7 @@ async function applyColorCorrection(colorblindType) {
         } else {
             // 외부 URL인 경우 프록시 서버를 통해 요청
             const targetUrl = img.src;
-            const proxiedUrl = "http://localhost:3000/proxy?url=" + encodeURIComponent(targetUrl);
+            const proxiedUrl = "http://localhost:4000/proxy?url=" + encodeURIComponent(targetUrl);
 
             try {
                 const response = await fetch(proxiedUrl);
