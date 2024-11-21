@@ -1,11 +1,14 @@
 # SnowMix  
-### Created by `2024 Pineapple Club`s `Round off the Square Earth` Team  
+### Created by `2024 Pineapple Club`'s `Round off the Square Earth` Team  
 **"To everyone who walks towards the stars!"**
 
 ## Purpose
 SnowMix is a powerful tool designed to enhance web accessibility for visually impaired and color-blind individuals, ensuring a more inclusive digital experience.
 
----
+
+## Features
+- Adjusts image colors to create colorblind-friendly versions, allowing colorblind users to perceive images more effectively.  
+- Provides descriptions of a website's overall content and structure, along with real-time updates on changes, enabling visually impaired users to navigate websites with ease.
 
 ## How to Run SnowMix
 
