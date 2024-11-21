@@ -1,0 +1,29 @@
+{
+  "name": "snowmix_proxyserver",
+  "version": "1.0.0",
+  "description": "To detour CORS Error",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "KOI3125",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koi312500/SnowMix.git"
+  },
+  "keywords": [
+    "CORS",
+    "proxy",
+    "server"
+  ],
+  "bugs": {
+    "url": "https://github.com/koi312500/SnowMix/issues"
+  },
+  "homepage": "https://github.com/koi312500/SnowMix#readme"
+}

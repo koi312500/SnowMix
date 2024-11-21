@@ -4,5 +4,29 @@
     "@types/chrome": "^0.0.270",
     "js-yaml": "^4.1.0",
     "mathjs": "^13.1.1"
-  }
+  },
+  "name": "snowmix_extension",
+  "version": "1.0.0",
+  "description": "Snowmix's chromium browser extension.",
+  "main": "content.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koi312500/SnowMix.git"
+  },
+  "keywords": [
+    "Extension",
+    "Colorblindness",
+    "visual",
+    "impairment"
+  ],
+  "author": "KOI3125",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/koi312500/SnowMix/issues"
+  },
+  "homepage": "https://github.com/koi312500/SnowMix#readme"
 }

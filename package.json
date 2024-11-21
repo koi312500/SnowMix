@@ -1,0 +1,31 @@
+{
+  "name": "snowmix",
+  "version": "1.0.0",
+  "description": "To everyone who walks towards the stars.",
+  "main": "index.js",
+  "dependencies": {
+    "argparse": "^2.0.1",
+    "complex.js": "^2.4.2",
+    "decimal.js": "^10.4.3",
+    "escape-latex": "^1.2.0",
+    "fraction.js": "^4.3.7",
+    "javascript-natural-sort": "^0.7.1",
+    "js-yaml": "^4.1.0",
+    "mathjs": "^13.2.3",
+    "regenerator-runtime": "^0.14.1",
+    "seedrandom": "^3.0.5",
+    "tiny-emitter": "^2.1.0",
+    "typed-function": "^4.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "echo \"Add Extension to Chromium browser.\" && node ./Proxy_Server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "workspaces": [
+    "Extension",
+    "Proxy_Server"
+  ]
+}
