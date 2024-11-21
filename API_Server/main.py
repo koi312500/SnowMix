@@ -9,6 +9,7 @@ import requests
 import time
 import io
 import easyocr
+import uvicorn
 import asyncio
 from PIL import Image
 
@@ -251,3 +252,7 @@ def run_ocr():
         print(f"An error occurred: {e}")
 
 # run_ocr() 함수를 호출하여 독립적으로 OCR 기능을
+
+# Uvicorn 서버 실행
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
